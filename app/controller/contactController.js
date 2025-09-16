@@ -4,7 +4,7 @@ import nodemailer from "nodemailer";
 
 export const submitContactForm = async (req, res) => {
   try {
-    const { name, email, message } = req.body;
+    const { name, email, message,to } = req.body;
     console.log(name, email, message);
     if (!name || !email || !message) {
       return res.status(400).json({ error: "All fields are required." });
@@ -33,7 +33,8 @@ export const submitContactForm = async (req, res) => {
       contact = await Contact.create({
         name,
         email,
-        messages: [{ message, date: customDate, time: formattedTime }]
+        messages: [{ message, date: customDate, time: formattedTime }],
+        to
       });
     }
 
@@ -215,13 +216,21 @@ export const submitContactForm = async (req, res) => {
       },
     });
     console.log("Transporter created");
-
-    const mailOptions = {
-      from: email,
+    let mailOptions 
+if(to=='akshay'){
+ mailOptions ={ from: email,
+      to: process.env.AKSHAY_EMAIL_TO,
+      subject: "🚀 New Contact Form Submission | " + name,
+      html: htmlContent,
+    };
+}
+else{
+   mailOptions ={ from: email,
       to: process.env.EMAIL_TO,
       subject: "🚀 New Contact Form Submission | " + name,
       html: htmlContent,
     };
+}
 
      transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
