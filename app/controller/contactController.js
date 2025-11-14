@@ -1,6 +1,6 @@
 import Contact from "../models/Contact.js";
 import nodemailer from "nodemailer";
-
+import Brevo from "@getbrevo/brevo";
 
 export const submitContactForm = async (req, res) => {
   try {
@@ -208,48 +208,84 @@ export const submitContactForm = async (req, res) => {
 
 
 
-    // const transporter = nodemailer.createTransport({
-    //   service: "gmail",
-    //   auth: {
-    //     user: process.env.EMAIL_USER,
-    //     pass: process.env.EMAIL_PASS
-    //   },
+//     const transporter = nodemailer.createTransport({
+//       service: "gmail",
+//       auth: {
+//         user: process.env.EMAIL_USER,
+//         pass: process.env.EMAIL_PASS
+//       },
+//     });
+//     console.log("Transporter created");
+//     let mailOptions 
+// if(to=='akshay'){
+//  mailOptions ={ from: email,
+//       to: process.env.AKSHAY_EMAIL_TO,
+//       subject: "🚀 New Contact Form Submission | " + name,
+//       html: htmlContent,
+//     };
+// }
+// else{
+//    mailOptions ={ from: email,
+//       to: process.env.EMAIL_TO,
+//       subject: "🚀 New Contact Form Submission | " + name,
+//       html: htmlContent,
+//     };
+// }
+
+    //  transporter.sendMail(mailOptions, (error, info) => {
+    //   if (error) {
+    //     return console.log('Error:', error);
+    //   }
+    //   console.log('Email sent:', info.response);
     // });
 
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS, // Gmail App Password
-      }
-    });
-    console.log("Transporter created");
-    let mailOptions 
-if(to=='akshay'){
- mailOptions ={ from: email,
-      to: process.env.AKSHAY_EMAIL_TO,
-      subject: "🚀 New Contact Form Submission | " + name,
-      html: htmlContent,
-    };
-}
-else{
-   mailOptions ={ from: email,
-      to: process.env.EMAIL_TO,
-      subject: "🚀 New Contact Form Submission | " + name,
-      html: htmlContent,
-    };
-}
+    // return res.status(200).json({ message: "Contact form submitted successfully." });
 
-     transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        return console.log('Error:', error);
-      }
-      console.log('Email sent:', info.response);
-    });
+    // -----------------------------
+    //  BREVO EMAIL SENDING SECTION
+    // -----------------------------
+    let apiInstance = new Brevo.TransactionalEmailsApi();
+    apiInstance.setApiKey(
+      Brevo.TransactionalEmailsApiApiKeys.apiKey,
+      process.env.BREVO_API_KEY
+    );
+    const sendSmtpEmail = new Brevo.SendSmtpEmail();
+    // Subject
+    sendSmtpEmail.subject = "🚀 New Contact Form Submission | " + name;
 
-    return res.status(200).json({ message: "Contact form submitted successfully." });
+    // HTML Body
+    sendSmtpEmail.htmlContent = htmlContent;
+
+    // IMPORTANT: Use verified sender (not customer email)
+    sendSmtpEmail.sender = {
+      name: process.env.BREVO_FROM_NAME, // Portfolio
+      email: process.env.BREVO_FROM_EMAIL // portfolioweb.noreply@gmail.com
+    };
+
+    // User email set as reply-to
+    sendSmtpEmail.replyTo = {
+      name: name,
+      email: email
+    };
+
+    // Receiver
+    sendSmtpEmail.to = [
+      {
+        email: to === "akshay" ? process.env.AKSHAY_EMAIL_TO : process.env.EMAIL_TO
+      }
+    ];
+
+    // Send email through Brevo
+    await apiInstance.sendTransacEmail(sendSmtpEmail)
+      .then((data) => {
+        console.log("Brevo Email Sent:", data.body);
+      })
+      .catch((error) => {
+        console.error("Brevo Email Error:", error);
+      });
+
+      return res.status(200).json({ message: "Contact form submitted successfully." });
+
   } catch (error) {
     console.error("Error submitting contact form:", error);
     return res
