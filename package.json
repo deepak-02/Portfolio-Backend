@@ -15,6 +15,7 @@
   "author": "Deepak C K",
   "license": "ISC",
   "dependencies": {
+    "@getbrevo/brevo": "^3.0.1",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.18.2",
