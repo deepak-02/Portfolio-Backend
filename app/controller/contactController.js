@@ -245,9 +245,10 @@ export const submitContactForm = async (req, res) => {
     //  BREVO EMAIL SENDING SECTION
     // -----------------------------
     let apiInstance = new Brevo.TransactionalEmailsApi();
+    const apiKey = process.env.BREVO_API_KEY_1 + process.env.BREVO_API_KEY_2;
     apiInstance.setApiKey(
       Brevo.TransactionalEmailsApiApiKeys.apiKey,
-      process.env.BREVO_API_KEY
+      apiKey
     );
     console.log("Brevo Api Key: => ",process.env.BREVO_API_KEY);
     const sendSmtpEmail = new Brevo.SendSmtpEmail();
