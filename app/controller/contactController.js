@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import nodemailer from "nodemailer";
-import Brevo from "@getbrevo/brevo";
 import Contact from "../models/Contact.js";
 import { contactEmailHtml } from "../templates/contactEmail.js";
 
@@ -59,30 +58,29 @@ const istStamp = (now = new Date()) => {
   return { date: `${parts.day} ${parts.month} ${parts.year} (${parts.weekday})`, time, year: parts.year };
 };
 
+// Brevo transactional email via its REST API (plain fetch — clear error messages).
 async function sendWithBrevo({ to, subject, html, replyTo }) {
   const key = brevoApiKey();
   if (!key) throw new Error("Brevo API key is not configured");
   if (!process.env.BREVO_FROM_EMAIL) throw new Error("BREVO_FROM_EMAIL is not configured");
 
-  const api = new Brevo.TransactionalEmailsApi();
-  api.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, key);
-
-  const mail = new Brevo.SendSmtpEmail();
-  mail.subject = subject;
-  mail.htmlContent = html;
-  mail.sender = { name: process.env.BREVO_FROM_NAME || "Portfolio", email: process.env.BREVO_FROM_EMAIL };
-  mail.replyTo = replyTo;
-  mail.to = [{ email: to }];
-
-  try {
-    const res = await api.sendTransacEmail(mail);
-    return res?.body?.messageId || "sent";
-  } catch (err) {
-    // Surface Brevo's own reason (e.g. 401 "Key not found", unverified sender)
-    const status = err?.response?.status || err?.statusCode;
-    const body = err?.response?.body || err?.body;
-    throw new Error(`Brevo ${status || ""} ${body ? JSON.stringify(body) : err.message}`.trim());
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": key, "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify({
+      sender: { name: process.env.BREVO_FROM_NAME || "Portfolio", email: process.env.BREVO_FROM_EMAIL },
+      to: [{ email: to }],
+      replyTo,
+      subject,
+      htmlContent: html,
+    }),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    // Brevo explains the reason here, e.g. "Key not found", "unrecognised IP address", sender not valid
+    throw new Error(`Brevo ${res.status}: ${text.slice(0, 300)}`);
   }
+  try { return JSON.parse(text).messageId || "sent"; } catch { return "sent"; }
 }
 
 async function sendWithGmail({ to, subject, html, replyTo }) {
@@ -90,8 +88,8 @@ async function sendWithGmail({ to, subject, html, replyTo }) {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
+    connectionTimeout: 6000,
+    greetingTimeout: 6000,
     socketTimeout: 15000,
   });
   const info = await transporter.sendMail({
